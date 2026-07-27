@@ -1,0 +1,57 @@
+---
+Language:        Cpp
+BasedOnStyle:  Google
+
+# --- Your Specific Requests ---
+
+# 1. Indent code inside namespaces
+NamespaceIndentation: All
+
+# 2. Attach pointers/refs to type (int* p) instead of name (int *p)
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+# --- Systems Programming "Professional" Standards ---
+
+# Standard indentation width (usually 2 or 4 spaces)
+IndentWidth:     2
+TabWidth:        2
+UseTab:          Never # Always use spaces for consistent rendering across editors
+
+# Column limit (prevent horizontal scrolling)
+ColumnLimit:     100
+
+# Keeps #include blocks sorted (great for header hygiene)
+SortIncludes:    true
+
+# Alignment features for readability
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false # Keep false to avoid messy diffs when adding vars
+AlignConsecutiveDeclarations: false
+AlignEscapedNewlines: Left
+AlignOperands:   Align
+AlignTrailingComments: true
+
+# Control braces (Allman style is popular in C++, but Attach is standard for Google/LLVM)
+# Change to 'RunIn' or 'Linux' if you prefer braces on the next line.
+BreakBeforeBraces: Attach
+
+# Function arguments
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackArguments: true
+BinPackParameters: true
+
+# Template formatting (Keep <...> packed together)
+AlwaysBreakTemplateDeclarations: Yes
+
+# Switch statement indentation
+IndentCaseLabels: true
+
+# Fix empty namespace comments (e.g., adds // namespace MySpace)
+FixNamespaceComments: true
+
+# C++20 specific (concepts/requires clauses)
+IndentRequiresClause: true
+BreakBeforeConceptDeclarations: true
+...
