@@ -16,7 +16,7 @@ struct Order {
 };
 
 static constexpr std::size_t N = 100000;  // allocations per trial
-static constexpr int TRIALS = 51;          // odd -> clean median
+static constexpr int TRIALS = 51;         // odd -> clean median
 
 // Returns median of a vector of doubles (sorts in place).
 static double median(std::vector<double> v) {
@@ -85,23 +85,19 @@ int main() {
   std::cout << "  trials: " << TRIALS << " (median reported)\n\n";
 
   std::cout << "                       ns/op      M ops/sec     median ms/trial\n";
-  std::cout << "  new   allocate:   " << std::setw(8) << nsPerOp(mNewAlloc)
-            << std::setw(13) << opsPerSec(mNewAlloc) / 1e6 << std::setw(16)
-            << mNewAlloc * 1e3 << "\n";
-  std::cout << "  new   deallocate: " << std::setw(8) << nsPerOp(mNewFree)
-            << std::setw(13) << opsPerSec(mNewFree) / 1e6 << std::setw(16)
-            << mNewFree * 1e3 << "\n";
-  std::cout << "  pool  allocate:   " << std::setw(8) << nsPerOp(mPoolAlloc)
-            << std::setw(13) << opsPerSec(mPoolAlloc) / 1e6 << std::setw(16)
-            << mPoolAlloc * 1e3 << "\n";
-  std::cout << "  pool  deallocate: " << std::setw(8) << nsPerOp(mPoolFree)
-            << std::setw(13) << opsPerSec(mPoolFree) / 1e6 << std::setw(16)
-            << mPoolFree * 1e3 << "\n\n";
+  std::cout << "  new   allocate:   " << std::setw(8) << nsPerOp(mNewAlloc) << std::setw(13)
+            << opsPerSec(mNewAlloc) / 1e6 << std::setw(16) << mNewAlloc * 1e3 << "\n";
+  std::cout << "  new   deallocate: " << std::setw(8) << nsPerOp(mNewFree) << std::setw(13)
+            << opsPerSec(mNewFree) / 1e6 << std::setw(16) << mNewFree * 1e3 << "\n";
+  std::cout << "  pool  allocate:   " << std::setw(8) << nsPerOp(mPoolAlloc) << std::setw(13)
+            << opsPerSec(mPoolAlloc) / 1e6 << std::setw(16) << mPoolAlloc * 1e3 << "\n";
+  std::cout << "  pool  deallocate: " << std::setw(8) << nsPerOp(mPoolFree) << std::setw(13)
+            << opsPerSec(mPoolFree) / 1e6 << std::setw(16) << mPoolFree * 1e3 << "\n\n";
 
   std::cout << "  speedup (allocate):    " << mNewAlloc / mPoolAlloc << "x\n";
   std::cout << "  speedup (deallocate):  " << mNewFree / mPoolFree << "x\n";
-  std::cout << "  speedup (alloc+free):  "
-            << (mNewAlloc + mNewFree) / (mPoolAlloc + mPoolFree) << "x\n";
+  std::cout << "  speedup (alloc+free):  " << (mNewAlloc + mNewFree) / (mPoolAlloc + mPoolFree)
+            << "x\n";
 
   // Make sink observable so the optimizer can't drop the loops.
   if (sink == 0xFFFFFFFFFFFFFFFFULL) std::cout << "";
