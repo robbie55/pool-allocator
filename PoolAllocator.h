@@ -1,14 +1,19 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <iostream>
+#include <new>
 
 template <typename T, std::size_t BlockCount>
 class PoolAllocator {
  public:
   PoolAllocator();
-
+  PoolAllocator(PoolAllocator const& other) = delete;
+  PoolAllocator& operator=(PoolAllocator const& rhs) = delete;
+  PoolAllocator(PoolAllocator&& other) = delete;
+  PoolAllocator& operator=(PoolAllocator&& rhs) = delete;
   ~PoolAllocator();
 
   T* allocate();
@@ -22,10 +27,17 @@ class PoolAllocator {
 
   void printMemLayout();
 
-  // create const that adds padding, if type of T is less than the size of Node, we can't align
-  static constexpr size_t BLOCK_SIZE{std::max(sizeof(T), sizeof(Node))};
+  // A block must satisfy BOTH T's alignment and Node's (free blocks hold a Node*).
+  static constexpr std::size_t ALIGNMENT{std::max(alignof(T), alignof(Node))};
 
-  alignas(BLOCK_SIZE) std::byte* m_pool{};
+  // Widen for types smaller than a pointer, then round the stride up to ALIGNMENT
+  // so every block lands on an aligned address.
+  static constexpr std::size_t MIN_BLOCK{std::max(sizeof(T), sizeof(Node))};
+  static constexpr std::size_t BLOCK_SIZE{(MIN_BLOCK + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT};
+
+  static constexpr std::size_t POOL_SIZE{BlockCount * BLOCK_SIZE};
+
+  std::byte* m_pool{};
 
   void* m_free_list_head{};
 };
@@ -73,11 +85,9 @@ T* PoolAllocator<T, BlockCount>::allocate() {
 
 template <typename T, std::size_t BlockCount>
 PoolAllocator<T, BlockCount>::PoolAllocator() {
-  constexpr std::size_t poolSize{BlockCount * BLOCK_SIZE};
+  static_assert(BLOCK_SIZE % ALIGNMENT == 0, "block stride must preserve alignment");
 
-  static_assert((poolSize % sizeof(Node) == 0));
-
-  m_pool = new std::byte[poolSize];
+  m_pool = static_cast<std::byte*>(::operator new(POOL_SIZE, std::align_val_t{ALIGNMENT}));
 
   m_free_list_head = reinterpret_cast<void*>(m_pool);
   for (size_t i{0}; i < BlockCount - 1; ++i) {
@@ -109,5 +119,6 @@ PoolAllocator<T, BlockCount>::PoolAllocator() {
 template <typename T, std::size_t BlockCount>
 PoolAllocator<T, BlockCount>::~PoolAllocator() {
   m_free_list_head = nullptr;
-  delete[] m_pool;
+  // delete[] on aligned - operator new storage is undefined behaviour
+  ::operator delete(m_pool, POOL_SIZE, std::align_val_t{ALIGNMENT});
 }
