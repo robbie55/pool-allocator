@@ -120,5 +120,6 @@ template <typename T, std::size_t BlockCount>
 PoolAllocator<T, BlockCount>::~PoolAllocator() {
   m_free_list_head = nullptr;
   // delete[] on aligned - operator new storage is undefined behaviour
-  ::operator delete(m_pool, POOL_SIZE, std::align_val_t{ALIGNMENT});
+  // ::operator delete(m_pool, POOL_SIZE, std::align_val_t{ALIGNMENT});
+  ::operator delete(m_pool, std::align_val_t{ALIGNMENT});
 }
