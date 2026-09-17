@@ -163,6 +163,77 @@ namespace Tests {
     release(pool, blocks);
   }
 
+  TEST_CASE_TEMPLATE("capacity is a compile-time constant", T, POOL_TYPES) {
+    constexpr std::size_t N{16};
+    PoolAllocator<T, N> pool{};
+
+    // capacity() is static constexpr, so a caller can size an array with it and
+    // pay nothing at runtime.
+    static_assert(PoolAllocator<T, N>::capacity() == N);
+    CHECK(pool.capacity() == N);
+  }
+
+  TEST_CASE("block accounting tracks every allocate and deallocate") {
+    constexpr std::size_t N{8};
+    PoolAllocator<Order, N> pool{};
+
+    CHECK(pool.available() == N);
+    CHECK(pool.used() == 0);
+    CHECK(pool.empty());
+    CHECK_FALSE(pool.full());
+
+    std::vector<Order*> blocks;
+    for (std::size_t i{1}; i <= N; ++i) {
+      blocks.push_back(pool.allocate());
+      CHECK(pool.used() == i);
+      CHECK(pool.available() == N - i);
+    }
+
+    CHECK(pool.full());
+    CHECK_FALSE(pool.empty());
+
+    // A failed allocation must not move the counters.
+    CHECK_THROWS_AS(pool.allocate(), std::bad_alloc);
+    CHECK(pool.used() == N);
+
+    // ...and neither must a null deallocate, which is a no-op.
+    pool.deallocate(nullptr);
+    CHECK(pool.used() == N);
+
+    while (!blocks.empty()) {
+      pool.deallocate(blocks.back());
+      blocks.pop_back();
+      CHECK(pool.used() == blocks.size());
+    }
+
+    CHECK(pool.available() == N);
+    CHECK(pool.empty());
+  }
+
+  TEST_CASE("tryAllocate reports exhaustion without disturbing the counters") {
+    PoolAllocator<Order, 2> pool{};
+
+    Order* a{pool.tryAllocate()};
+    Order* b{pool.tryAllocate()};
+    REQUIRE(a != nullptr);
+    REQUIRE(b != nullptr);
+    CHECK(pool.full());
+
+    CHECK(pool.tryAllocate() == nullptr);
+    CHECK(pool.tryAllocate() == nullptr);
+    CHECK(pool.used() == 2);  // the failures changed nothing
+
+    pool.deallocate(a);
+    pool.deallocate(b);
+    CHECK(pool.empty());
+  }
+
+  // The double-free guard aborts the process. By the time it fires the free
+  // list is already corrupt, so there is nothing left to recover to. doctest
+  // has no death-test support, so these cases run out of process instead. The
+  // guard fires on: deallocate(p) twice in a row, free a / free b / free a,
+  // a stack pointer, and a pointer four bytes into a live block.
+
   TEST_CASE("a single-block pool behaves") {
     PoolAllocator<Order, 1> pool{};
 
