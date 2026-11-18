@@ -8,7 +8,7 @@
 #include <iostream>
 #include <new>
 
-template <typename T, std::size_t BlockCount>
+template <typename T, std::size_t BlockCount, bool Guard = true>
 class PoolAllocator {
   static_assert(BlockCount > 0, "a pool needs at least one block");
 
@@ -66,6 +66,9 @@ class PoolAllocator {
   // L1 beside the head pointer. Each call pays a bounds compare, a bit test and
   // a bit write, and the branch predicts one way in normal use. The same
   // arithmetic rejects foreign and interior pointers.
+  //
+  // Guard = false compiles the checks out; misuse then corrupts the free list
+  // silently. m_live is kept either way.
   // ---------------------------------------------------------------------------
   static constexpr std::size_t LIVE_BYTES{(BlockCount + 7) / 8};
 
@@ -114,8 +117,8 @@ class PoolAllocator {
   std::byte m_live[LIVE_BYTES]{};
 };
 
-template <typename T, std::size_t BlockCount>
-void PoolAllocator<T, BlockCount>::printMemLayout() {
+template <typename T, std::size_t BlockCount, bool Guard>
+void PoolAllocator<T, BlockCount, Guard>::printMemLayout() {
   Node* p{reinterpret_cast<Node*>(m_free_list_head)};
   while (p && p->next) {
     std::uintptr_t curAddr{reinterpret_cast<std::uintptr_t>(p)};
@@ -127,26 +130,28 @@ void PoolAllocator<T, BlockCount>::printMemLayout() {
   }
 }
 
-template <typename T, std::size_t BlockCount>
-void PoolAllocator<T, BlockCount>::deallocate(T* ptr) noexcept {
+template <typename T, std::size_t BlockCount, bool Guard>
+void PoolAllocator<T, BlockCount, Guard>::deallocate(T* ptr) noexcept {
   // though this function is called deallocate, the goal is to reinsert the block back into the
   // memory pool
 
   // A null free is a no-op, matching ::operator delete.
   if (ptr == nullptr) return;
 
-  std::size_t const idx{indexOf(ptr)};
+  if constexpr (Guard) {
+    std::size_t const idx{indexOf(ptr)};
 
-  // Not one of our blocks, or a pointer into the middle of one. Either way it
-  // must not go on the free list. A later allocate() would hand it straight
-  // back out and the crash would land somewhere unrelated.
-  if (idx == BlockCount) onBadFree(ptr, "deallocate of a foreign or misaligned pointer");
+    // Not one of our blocks, or a pointer into the middle of one. Either way it
+    // must not go on the free list. A later allocate() would hand it straight
+    // back out and the crash would land somewhere unrelated.
+    if (idx == BlockCount) onBadFree(ptr, "deallocate of a foreign or misaligned pointer");
 
-  // The block is already on the free list. Pushing it again splices the list
-  // into a cycle, and allocate() then hands the same address out twice.
-  if (!isLive(idx)) onBadFree(ptr, "double deallocate");
+    // The block is already on the free list. Pushing it again splices the list
+    // into a cycle, and allocate() then hands the same address out twice.
+    if (!isLive(idx)) onBadFree(ptr, "double deallocate");
 
-  markFree(idx);
+    markFree(idx);
+  }
 
   Node* newHead{reinterpret_cast<Node*>(ptr)};
   newHead->next = reinterpret_cast<Node*>(m_free_list_head);
@@ -155,8 +160,8 @@ void PoolAllocator<T, BlockCount>::deallocate(T* ptr) noexcept {
   ++m_free_count;
 }
 
-template <typename T, std::size_t BlockCount>
-T* PoolAllocator<T, BlockCount>::allocate() {
+template <typename T, std::size_t BlockCount, bool Guard>
+T* PoolAllocator<T, BlockCount, Guard>::allocate() {
   T* block{tryAllocate()};
 
   // if we try to allocate when we're empty, throw
@@ -165,8 +170,8 @@ T* PoolAllocator<T, BlockCount>::allocate() {
   return block;
 }
 
-template <typename T, std::size_t BlockCount>
-T* PoolAllocator<T, BlockCount>::tryAllocate() noexcept {
+template <typename T, std::size_t BlockCount, bool Guard>
+T* PoolAllocator<T, BlockCount, Guard>::tryAllocate() noexcept {
   // if we try to allocate when we're empty, hand back null
   if (m_free_list_head == nullptr) {
     return nullptr;
@@ -176,21 +181,23 @@ T* PoolAllocator<T, BlockCount>::tryAllocate() noexcept {
   Node* head{reinterpret_cast<Node*>(m_free_list_head)};
   m_free_list_head = head->next;
 
-  // The free list should never hand out a block that is already live. If it
-  // does, something has corrupted the list, most likely a stray write through
-  // a freed pointer, and carrying on would alias two live objects.
-  std::size_t const idx{indexOf(reinterpret_cast<T*>(head))};
-  if (idx == BlockCount || isLive(idx))
-    onBadFree(reinterpret_cast<T*>(head), "free list corrupted");
+  if constexpr (Guard) {
+    // The free list should never hand out a block that is already live. If it
+    // does, something has corrupted the list, most likely a stray write through
+    // a freed pointer, and carrying on would alias two live objects.
+    std::size_t const idx{indexOf(reinterpret_cast<T*>(head))};
+    if (idx == BlockCount || isLive(idx))
+      onBadFree(reinterpret_cast<T*>(head), "free list corrupted");
 
-  markLive(idx);
+    markLive(idx);
+  }
   --m_free_count;
 
   return reinterpret_cast<T*>(head);
 }
 
-template <typename T, std::size_t BlockCount>
-PoolAllocator<T, BlockCount>::PoolAllocator() {
+template <typename T, std::size_t BlockCount, bool Guard>
+PoolAllocator<T, BlockCount, Guard>::PoolAllocator() {
   static_assert(BLOCK_SIZE % ALIGNMENT == 0, "block stride must preserve alignment");
 
   m_pool = static_cast<std::byte*>(::operator new(POOL_SIZE, std::align_val_t{ALIGNMENT}));
@@ -227,8 +234,8 @@ PoolAllocator<T, BlockCount>::PoolAllocator() {
   // printMemLayout();
 }
 
-template <typename T, std::size_t BlockCount>
-PoolAllocator<T, BlockCount>::~PoolAllocator() {
+template <typename T, std::size_t BlockCount, bool Guard>
+PoolAllocator<T, BlockCount, Guard>::~PoolAllocator() {
   m_free_list_head = nullptr;
   // delete[] on aligned - operator new storage is undefined behaviour
   // ::operator delete(m_pool, POOL_SIZE, std::align_val_t{ALIGNMENT});

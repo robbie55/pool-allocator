@@ -50,16 +50,16 @@ namespace Tests {
   }
 
   // Drain a pool completely, returning every block handed out.
-  template <typename T, std::size_t N>
-  std::vector<T*> drain(PoolAllocator<T, N>& pool) {
+  template <typename T, std::size_t N, bool G>
+  std::vector<T*> drain(PoolAllocator<T, N, G>& pool) {
     std::vector<T*> blocks;
     blocks.reserve(N);
     for (std::size_t i{0}; i < N; ++i) blocks.push_back(pool.allocate());
     return blocks;
   }
 
-  template <typename T, std::size_t N>
-  void release(PoolAllocator<T, N>& pool, std::vector<T*> const& blocks) {
+  template <typename T, std::size_t N, bool G>
+  void release(PoolAllocator<T, N, G>& pool, std::vector<T*> const& blocks) {
     for (T* p : blocks) pool.deallocate(p);
   }
 
@@ -311,6 +311,115 @@ namespace Tests {
     CHECK_FALSE(std::is_copy_assignable_v<P>);
     CHECK_FALSE(std::is_move_constructible_v<P>);
     CHECK_FALSE(std::is_move_assignable_v<P>);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Guard = false
+  //
+  // The unguarded pool drops the live bitmap checks but must keep every other
+  // behaviour. Misuse (double, foreign, interior free) is undefined there, so
+  // only correct use is tested.
+  // ---------------------------------------------------------------------------
+
+  static_assert(std::is_same_v<PoolAllocator<Order, 4>, PoolAllocator<Order, 4, true>>,
+                "the guard must stay on by default");
+  static_assert(sizeof(PoolAllocator<Order, 1024, false>) <=
+                sizeof(PoolAllocator<Order, 1024, true>));
+
+  TEST_CASE_TEMPLATE("every block in a full pool is correctly aligned [unguarded]", T, POOL_TYPES) {
+    constexpr std::size_t N{16};
+    PoolAllocator<T, N, false> pool{};
+
+    const std::vector<T*> blocks{drain(pool)};
+    for (T* p : blocks) {
+      REQUIRE(p != nullptr);
+      CHECK(isAligned(p));
+    }
+
+    release(pool, blocks);
+  }
+
+  TEST_CASE("a pool yields exactly BlockCount blocks, then throws [unguarded]") {
+    PoolAllocator<Order, 8, false> pool{};
+
+    std::vector<Order*> blocks{drain(pool)};
+    CHECK_THROWS_AS(pool.allocate(), std::bad_alloc);
+    CHECK(pool.tryAllocate() == nullptr);
+
+    pool.deallocate(blocks.back());
+    blocks.pop_back();
+
+    Order* revived{nullptr};
+    REQUIRE_NOTHROW(revived = pool.allocate());
+    CHECK(revived != nullptr);
+    blocks.push_back(revived);
+    CHECK_THROWS_AS(pool.allocate(), std::bad_alloc);
+
+    release(pool, blocks);
+  }
+
+  TEST_CASE("block accounting tracks every allocate and deallocate [unguarded]") {
+    constexpr std::size_t N{8};
+    PoolAllocator<Order, N, false> pool{};
+
+    CHECK(pool.empty());
+    std::vector<Order*> blocks;
+    for (std::size_t i{1}; i <= N; ++i) {
+      blocks.push_back(pool.allocate());
+      CHECK(pool.used() == i);
+      CHECK(pool.available() == N - i);
+    }
+    CHECK(pool.full());
+
+    CHECK_THROWS_AS(pool.allocate(), std::bad_alloc);
+    pool.deallocate(nullptr);
+    CHECK(pool.used() == N);
+
+    while (!blocks.empty()) {
+      pool.deallocate(blocks.back());
+      blocks.pop_back();
+      CHECK(pool.used() == blocks.size());
+    }
+    CHECK(pool.empty());
+  }
+
+  TEST_CASE("the free list is LIFO [unguarded]") {
+    PoolAllocator<int, 3, false> pool{};
+
+    int* a{pool.allocate()};
+    int* b{pool.allocate()};
+    int* c{pool.allocate()};
+
+    pool.deallocate(b);
+    CHECK(pool.allocate() == b);
+
+    pool.deallocate(c);
+    pool.deallocate(a);
+    CHECK(pool.allocate() == a);
+    CHECK(pool.allocate() == c);
+
+    pool.deallocate(a);
+    pool.deallocate(b);
+    pool.deallocate(c);
+  }
+
+  TEST_CASE("a full drain/release cycle loses and duplicates nothing [unguarded]") {
+    constexpr std::size_t N{16};
+    PoolAllocator<Order, N, false> pool{};
+
+    auto addressSet = [&pool] {
+      const std::vector<Order*> blocks{drain(pool)};
+      std::set<std::uintptr_t> addrs;
+      for (Order* p : blocks) addrs.insert(reinterpret_cast<std::uintptr_t>(p));
+      release(pool, blocks);
+      return addrs;
+    };
+
+    const std::set<std::uintptr_t> first{addressSet()};
+    const std::set<std::uintptr_t> second{addressSet()};
+
+    CHECK(first.size() == N);
+    CHECK(first == second);
   }
 
 #undef POOL_TYPES
