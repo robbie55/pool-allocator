@@ -1,0 +1,134 @@
+date: 2026-11-19T17:07:00Z
+commit: 3ff2f3ee6bde05054e0b9ccd193f18a1dfcde827
+dirty files: 0
+compiler: Apple clang version 21.0.0 (clang-2100.3.34.2)
+cmake: cmake version 4.2.3
+uname: Darwin Robbies-MacBook-Pro-3.local 25.6.0 Darwin Kernel Version 25.6.0: Tue Aug 18 17:49:13 PDT 2026; root:xnu-12377.161.15.700.19~2/RELEASE_ARM64_T6000 arm64
+cpu: Apple M1 Pro
+power: Now drawing from 'AC Power'
+CMAKE_BUILD_TYPE:STRING=Release
+CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
+CMAKE_CXX_FLAGS_RELEASE-ADVANCED:INTERNAL=1
+pinning: none (macOS)
+command: bench/run.sh /private/tmp/claude-501/-Users-robbiemclaughlin-Code-resume-harness/c2516b13-d656-4b25-8514-73931f402b0d/scratchpad/bench/pool-allocator/build/rel/PoolAllocator 5
+
+=== run 1/5 ===
+PoolAllocator benchmark
+  payload: Order{int,double} = 16 bytes
+  allocations per trial: 100000
+  trials: 51 (median reported)
+
+                                    ns/op      M ops/sec     median ms/trial
+  new   allocate:                    7.30       136.95            0.73
+  new   deallocate:                  9.12       109.64            0.91
+  pool  allocate (guard on):         2.25       445.43            0.22
+  pool  deallocate (guard on):       2.17       461.18            0.22
+  pool  allocate (guard off):        1.20       833.62            0.12
+  pool  deallocate (guard off):      0.44      2272.73            0.04
+
+  speedup (allocate, guard on):     3.25x
+  speedup (deallocate, guard on):   4.21x
+  speedup (alloc+free, guard on):   3.72x
+  speedup (allocate, guard off):    6.09x
+  speedup (deallocate, guard off):  20.73x
+  speedup (alloc+free, guard off):  10.02x
+  guard cost: 2.77 ns per alloc+free pair
+
+=== run 2/5 ===
+PoolAllocator benchmark
+  payload: Order{int,double} = 16 bytes
+  allocations per trial: 100000
+  trials: 51 (median reported)
+
+                                    ns/op      M ops/sec     median ms/trial
+  new   allocate:                    7.23       138.34            0.72
+  new   deallocate:                  9.08       110.12            0.91
+  pool  allocate (guard on):         2.21       452.23            0.22
+  pool  deallocate (guard on):       2.16       463.68            0.22
+  pool  allocate (guard off):        1.19       838.87            0.12
+  pool  deallocate (guard off):      0.44      2281.39            0.04
+
+  speedup (allocate, guard on):     3.27x
+  speedup (deallocate, guard on):   4.21x
+  speedup (alloc+free, guard on):   3.73x
+  speedup (allocate, guard off):    6.06x
+  speedup (deallocate, guard off):  20.72x
+  speedup (alloc+free, guard off):  10.00x
+  guard cost: 2.74 ns per alloc+free pair
+
+=== run 3/5 ===
+PoolAllocator benchmark
+  payload: Order{int,double} = 16 bytes
+  allocations per trial: 100000
+  trials: 51 (median reported)
+
+                                    ns/op      M ops/sec     median ms/trial
+  new   allocate:                    7.21       138.78            0.72
+  new   deallocate:                  9.06       110.40            0.91
+  pool  allocate (guard on):         2.20       454.20            0.22
+  pool  deallocate (guard on):       2.15       465.21            0.21
+  pool  allocate (guard off):        1.18       845.07            0.12
+  pool  deallocate (guard off):      0.44      2251.39            0.04
+
+  speedup (allocate, guard on):     3.27x
+  speedup (deallocate, guard on):   4.21x
+  speedup (alloc+free, guard on):   3.74x
+  speedup (allocate, guard off):    6.09x
+  speedup (deallocate, guard off):  20.39x
+  speedup (alloc+free, guard off):  9.99x
+  guard cost: 2.72 ns per alloc+free pair
+
+=== run 4/5 ===
+PoolAllocator benchmark
+  payload: Order{int,double} = 16 bytes
+  allocations per trial: 100000
+  trials: 51 (median reported)
+
+                                    ns/op      M ops/sec     median ms/trial
+  new   allocate:                    7.21       138.70            0.72
+  new   deallocate:                  9.05       110.45            0.91
+  pool  allocate (guard on):         2.21       451.47            0.22
+  pool  deallocate (guard on):       2.15       464.76            0.22
+  pool  allocate (guard off):        1.18       845.07            0.12
+  pool  deallocate (guard off):      0.45      2240.90            0.04
+
+  speedup (allocate, guard on):     3.25x
+  speedup (deallocate, guard on):   4.21x
+  speedup (alloc+free, guard on):   3.72x
+  speedup (allocate, guard off):    6.09x
+  speedup (deallocate, guard off):  20.29x
+  speedup (alloc+free, guard off):  9.98x
+  guard cost: 2.74 ns per alloc+free pair
+
+=== run 5/5 ===
+PoolAllocator benchmark
+  payload: Order{int,double} = 16 bytes
+  allocations per trial: 100000
+  trials: 51 (median reported)
+
+                                    ns/op      M ops/sec     median ms/trial
+  new   allocate:                    7.20       138.95            0.72
+  new   deallocate:                  9.08       110.18            0.91
+  pool  allocate (guard on):         2.21       451.64            0.22
+  pool  deallocate (guard on):       2.15       464.13            0.22
+  pool  allocate (guard off):        1.18       845.37            0.12
+  pool  deallocate (guard off):      0.43      2312.14            0.04
+
+  speedup (allocate, guard on):     3.25x
+  speedup (deallocate, guard on):   4.21x
+  speedup (alloc+free, guard on):   3.72x
+  speedup (allocate, guard off):    6.08x
+  speedup (deallocate, guard off):  20.99x
+  speedup (alloc+free, guard off):  10.07x
+  guard cost: 2.75 ns per alloc+free pair
+
+=== summary over 5 runs: min / median / max ===
+  guard cost:                            2.72     2.74     2.77
+  new   allocate:                        7.20     7.21     7.30
+  new   deallocate:                      9.05     9.08     9.12
+  pool  allocate (guard off):            1.18     1.18     1.20
+  pool  allocate (guard on):             2.20     2.21     2.25
+  pool  deallocate (guard off):          0.43     0.44     0.45
+  pool  deallocate (guard on):           2.15     2.15     2.17
+  speedup (alloc+free, guard off):       9.98    10.00    10.07
+  speedup (alloc+free, guard on):        3.72     3.72     3.74
